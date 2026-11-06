@@ -37,7 +37,9 @@ soft clouds (more or fewer with the cloud cover) drifting with the wind, an
 overcast ceiling, stars and the moon at night, rain with drops on the glass,
 snow, fog and lightning. It fades out before the first card. Clouds, rain and
 snow move while the page is open (turn it off under Settings, or with
-Windows' "Animation effects"). The page scrolls, and almost everything is
+Windows' "Animation effects"). Two sliders in Settings make the sky's
+background see-through (down to Fenn's own glass) and set how strong the
+clouds, sun, stars, rain and snow are. The page scrolls, and almost everything is
 clickable:
 
 - **Header:** place, temperature, condition, high and low. Click it for the
@@ -133,6 +135,11 @@ MIT, see [LICENSE](LICENSE). Weather and air quality data by
 Copernicus Atmosphere Monitoring Service.
 
 ## Changelog
+
+**1.0.1**
+- Sky look: two new sliders in Settings, Sky background (from the full sky
+  color down to see-through on Fenn's glass) and Sky effects (how strong the
+  clouds, sun, stars, rain and snow are).
 
 **1.0.0**
 - First release: the Glossy and Sky looks, places, units, air quality, sun and

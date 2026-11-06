@@ -10,4 +10,4 @@ run = ["python", "main.py"]
 page_size = [520, 410]
 description = "Weather with 3D icons, an interactive chart, air quality, sun and moon, and an animated sky look. Free, no key."
 author = "Lujlap"
-version = "1.0.0"
+version = "1.0.1"

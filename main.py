@@ -46,6 +46,8 @@ DEFAULTS = {
     "cards_hidden": [],
     "cards_order": [],
     "animate": True,        # move the Sky look's clouds, rain and snow
+    "sky_bg": 100,          # Sky look: background opacity, %
+    "sky_fx": 100,          # Sky look: clouds, sun, rain... opacity, %
 }
 settings = {**DEFAULTS, **(app.load("settings", {}) or {})}
 if settings.get("recent") and not settings["places"]:
@@ -388,6 +390,12 @@ def settings_view():
                   if settings["refresh"] in (15, 30, 60) else 0),
         chips_row("Hourly shows", "hour_mode", ["Conditions", "Rain", "Wind"],
                   ["conditions", "precip", "wind"].index(settings["hour_mode"])),
+        fenn.row([fenn.text("Sky background", color="dim"),
+                  fenn.slider("sky_bg", settings["sky_bg"], min=0, max=100, step=5,
+                              tooltip="0% is see-through like Glossy, 100% the full sky color")], gap=8),
+        fenn.row([fenn.text("Sky effects", color="dim"),
+                  fenn.slider("sky_fx", settings["sky_fx"], min=0, max=100, step=5,
+                              tooltip="Clouds, sun, stars, rain, snow and lightning")], gap=8),
         fenn.toggle("animate", settings["animate"], label="Animated sky (drifting clouds, rain, snow, lightning)"),
         fenn.text("Units left as they were follow the place (°F, mph and inches in the US).", size="small", color="faint"),
         fenn.divider(),
@@ -445,6 +453,7 @@ def draw():
     """The tile always; the page while it's open, and once before, because
     Fenn opens a plugin's page on a tile click only after it has one."""
     global page_sent
+    sky.BG, sky.FX = settings["sky_bg"] / 100, settings["sky_fx"] / 100
     try:
         app.tile(tile_view())
     except Exception as e:
@@ -597,6 +606,10 @@ def on_event(e):
         k = eid[2:]
         settings[k] = u.CHOICES[k][value["index"]][0]
         save_settings()
+    elif eid in ("sky_bg", "sky_fx"):
+        settings[eid] = int(value or 0)
+        if kind == "commit":
+            save_settings()
     elif eid == "animate":
         settings["animate"] = bool(value)
         save_settings()

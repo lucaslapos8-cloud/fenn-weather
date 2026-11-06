@@ -391,6 +391,41 @@ def draw(sc, W, t, moon_fn=None):
     return _fit_circles([x for x in out if x is not None], W)
 
 
+def scale_alpha(shapes, k, fade_mix=0.0):
+    """Multiply every shape's opacity by k. With fade_mix > 0, shapes also
+    fade out by height between FADE_FROM and FADE_TO (used when the card
+    behind is see-through, so a solid cover band would show)."""
+    if k >= 0.999 and fade_mix <= 0.001:
+        return shapes
+    out = []
+    for sh in shapes:
+        kk = k
+        if fade_mix > 0:
+            t = sh.get("type")
+            if t == "circle" or t == "text":
+                y = sh["y"]
+            elif t == "rect":
+                y = sh["y"] + sh.get("h", 0) / 2
+            elif t in ("line", "polygon"):
+                pts = sh.get("points") or [[0, 0]]
+                y = sum(p[1] for p in pts) / len(pts)
+            else:
+                y = 0
+            a = min(1.0, max(0.0, (y - FADE_FROM) / (FADE_TO - FADE_FROM)))
+            a = a * a * (3 - 2 * a)
+            kk *= 1 - fade_mix * a
+        if kk <= 0.004:
+            continue
+        sh = dict(sh)
+        for key in ("fill", "stroke", "color"):
+            c = sh.get(key)
+            if isinstance(c, str) and c.startswith("#") and len(c) in (7, 9):
+                alpha = int(c[7:9], 16) if len(c) == 9 else 255
+                sh[key] = f"{c[:7]}{round(alpha * kk):02X}"
+        out.append(sh)
+    return out
+
+
 def fade(W, top_color_at):
     """Covers the ambient smoothly: bands of the card's own color going from
     clear to solid, then solid down to the first card."""

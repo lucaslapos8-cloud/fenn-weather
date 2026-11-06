@@ -70,17 +70,27 @@ def gradient_box(x, y, w, h, top, bottom, radius=18, steps=40):
     return out
 
 
+BG = 1.0   # how opaque the sky background is (settings: Sky background)
+FX = 1.0   # how strong the clouds, sun, stars, rain... are (settings: Sky effects)
+
+
 def paint_sky(c, top, bottom, scene=None, t=0.0):
     """The gradient under everything on the canvas; with a scene, the
     ambient sky and its fade go between the gradient and the content. The
     layers are kept on the canvas so the animation can redraw just the sky."""
-    base = gradient_box(0, 0, c.w, c.h, top, bottom)
+    if BG >= 0.999:
+        base = gradient_box(0, 0, c.w, c.h, top, bottom)
+    else:
+        # see-through: one shape, since overlapping bands would show as strips
+        base = [fenn.rect(0, 0, c.w, c.h, fill=f"{mix(top, bottom, 0.35)}{round(255 * BG):02X}", radius=18)]
     rim = [fenn.rect(0, 0, c.w, c.h, stroke="#FFFFFF1C", width=1, radius=18)]
     if scene is None:
         c.shapes = base + c.shapes + rim
         return
     h = c.h
-    cover = ambient.fade(c.w, lambda y: mix(top, bottom, (y - 18) / max(1, h - 36)))
+    # solid: a band of the card's color covers the sky's bottom edge; see-through:
+    # the sky's shapes fade out by themselves (see sky_shapes)
+    cover = ambient.fade(c.w, lambda y: mix(top, bottom, (y - 18) / max(1, h - 36))) if BG >= 0.999 else []
     c.scene = scene
     c.below = base
     c.above = cover + c.shapes + rim
@@ -95,7 +105,8 @@ def moon_shapes(out, x, y, r, phase, lat=0.0):
 
 def sky_shapes(c, t):
     lat = c.scene.get("lat", 0.0)
-    return ambient.draw(c.scene, c.w, t, lambda out, x, y, r, ph: moon_shapes(out, x, y, r, ph, lat))
+    shapes = ambient.draw(c.scene, c.w, t, lambda out, x, y, r, ph: moon_shapes(out, x, y, r, ph, lat))
+    return ambient.scale_alpha(shapes, FX, 0.0 if BG >= 0.999 else 1.0)
 
 
 def ambient_scene(m):
@@ -118,6 +129,10 @@ def ambient_scene(m):
 
 
 def bg_at(top, bottom, y, h):
+    """The card's color at a height, for the symbols' cut-out rings; none
+    when the background is see-through (a ring would show as an outline)."""
+    if BG < 0.999:
+        return None
     return mix(top, bottom, (y - 18) / max(1, h - 36))
 
 
