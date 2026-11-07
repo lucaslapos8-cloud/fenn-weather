@@ -289,16 +289,18 @@ def _draw_rain(sc, W, t, out):
     slant = 0.12 + min(sc["wind"], 60) / 160
     span = TOP + 30
     for i in range(n):
+        # every random number first: a skipped drop must not shift the others' numbers
         x0, y0 = rng.uniform(-20, W + 40), rng.uniform(0, span)
         length = rng.uniform(9, 17) * (1.2 if level >= 3 else 1)
         speed = rng.uniform(380, 520)
+        alpha = rng.uniform(0.18, 0.38)
         y = (y0 + speed * t) % span - 20
         x = x0 - slant * y
         y1 = min(y + length, TOP - 4)
         if y1 <= max(y, 2) or x < 2 or x > W - 2:
             continue
         ys = max(y, CORNER if (x < CORNER or x > W - CORNER) else 2)
-        out.append(fenn.line([(x, ys), (x - slant * (y1 - ys), y1)], color=_a("#FFFFFF", rng.uniform(0.18, 0.38)), width=1.1))
+        out.append(fenn.line([(x, ys), (x - slant * (y1 - ys), y1)], color=_a("#FFFFFF", alpha), width=1.1))
 
 
 def _draw_drops(sc, W, t, out):
@@ -327,14 +329,18 @@ def _draw_snow(sc, W, t, out):
     span = TOP + 10
     drift = sc["wind"] * 0.25
     for i in range(n):
+        # every random number first: a skipped flake must not shift the others' numbers
+        # (that made flakes jump to new places from one frame to the next)
         r = rng.choice((0.9, 1.2, 1.5, 1.8, 2.3, 2.8))
         x0, y0 = rng.uniform(0, W), rng.uniform(0, span)
+        sway_rate, sway_phase, sway = rng.uniform(0.6, 1.4), rng.uniform(0, 6.3), rng.uniform(4, 12)
+        alpha = rng.uniform(0.55, 0.9)
         speed = 14 + r * 11
         y = (y0 + speed * t) % span - 5
-        x = (x0 + drift * t + math.sin(t * rng.uniform(0.6, 1.4) + rng.uniform(0, 6.3)) * rng.uniform(4, 12)) % W
+        x = (x0 + drift * t + math.sin(t * sway_rate + sway_phase) * sway) % W
         if y - r < 2 or y + r > TOP or ((x < CORNER or x > W - CORNER) and y < CORNER):
             continue
-        out.append(fenn.circle(x, y, r, fill=_a("#FFFFFF", rng.uniform(0.55, 0.9))))
+        out.append(fenn.circle(x, y, r, fill=_a("#FFFFFF", alpha)))
 
 
 def _draw_fog(sc, W, t, out):

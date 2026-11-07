@@ -94,8 +94,48 @@ def forecast(place, *_):
     return d
 
 
+ARCHIVE = "https://archive-api.open-meteo.com/v1/archive"
+MONTH_DAILY = "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,snowfall_sum,precipitation_probability_max"
+
+
+def month(place):
+    """Panorama's calendar: the last 31 days and the next 16, day by day."""
+    d = get_json(FORECAST, {
+        "latitude": round(place["lat"], 4),
+        "longitude": round(place["lon"], 4),
+        "daily": MONTH_DAILY,
+        "timezone": "auto",
+        "past_days": 31,
+        "forecast_days": 16,
+    })
+    d["fetched"] = time.time()
+    d["place"] = place
+    return d
+
+
+def history(place):
+    """Panorama's trends: the past 12 months day by day (Open-Meteo's
+    historical weather; the last few days may still be empty)."""
+    end = datetime.now().date() - timedelta(days=1)
+    start = end - timedelta(days=366)
+    d = get_json(ARCHIVE, {
+        "latitude": round(place["lat"], 4),
+        "longitude": round(place["lon"], 4),
+        "start_date": start.isoformat(),
+        "end_date": end.isoformat(),
+        "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,snowfall_sum,"
+                 "wind_speed_10m_max,relative_humidity_2m_mean",
+        "timezone": "auto",
+    }, timeout=25)
+    d["fetched"] = time.time()
+    d["place"] = place
+    return d
+
+
 AIR = "https://air-quality-api.open-meteo.com/v1/air-quality"
 POLLUTANTS = "pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide"
+# Europe only (empty elsewhere): the Mono look's pollen
+POLLEN = "alder_pollen,birch_pollen,grass_pollen,mugwort_pollen,olive_pollen,ragweed_pollen"
 
 
 def air_quality(place):
@@ -104,7 +144,7 @@ def air_quality(place):
     d = get_json(AIR, {
         "latitude": round(place["lat"], 4),
         "longitude": round(place["lon"], 4),
-        "current": "european_aqi,us_aqi," + POLLUTANTS,
+        "current": "european_aqi,us_aqi," + POLLUTANTS + "," + POLLEN,
         "hourly": "european_aqi,us_aqi," + POLLUTANTS,
         "timezone": "auto",
         "past_days": 1,

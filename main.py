@@ -1,12 +1,14 @@
 """Weather for Fenn: the temperature and sky on the tile, and a page in one
-of two looks. Glossy (the default): today with sunrise and sunset, rain,
+of three looks. Glossy (the default): today with sunrise and sunset, rain,
 humidity and wind, and the next 7 days or hours. Sky: a full dashboard of
 cards (hourly, 10 days, rain, air quality, wind, sun, moon, UV and more),
-each opening a detail view with a chart. Forecasts from Open-Meteo (free,
-no key); sun and moon computed locally.
+each opening a detail view with a chart. Panorama: a wide desktop-style
+dashboard with a day-by-day chart, detail gauges, a monthly calendar and
+the past 12 months. Forecasts from Open-Meteo (free, no key); sun and moon
+computed locally.
 
 This file keeps the settings and view state, fetches in the background and
-handles clicks; glossy.py and sky.py draw."""
+handles clicks; glossy.py, sky.py and panorama.py draw."""
 
 import os
 import sys
@@ -19,7 +21,11 @@ sys.stdin.reconfigure(encoding="utf-8")
 
 import data
 import fenn
+import brief
 import glossy
+import mono
+import panorama
+import simple
 import sky
 import ui
 import units as u
@@ -38,7 +44,7 @@ DEFAULTS = {
     "places": [],           # saved places, in order
     "temp": None, "wind": None, "precip": None, "pressure": None, "dist": None,  # None: by the place
     "clock24": clock24,
-    "look": "glossy",       # "glossy" or "sky"
+    "look": "glossy",       # one of LOOKS
     "strip": "days",        # Glossy's bottom row: "days" or "hours"
     "aqi": "auto",          # "auto" (US AQI in the US, else European), "eu" or "us"
     "refresh": 15,          # minutes
@@ -48,6 +54,9 @@ DEFAULTS = {
     "animate": True,        # move the Sky look's clouds, rain and snow
     "sky_bg": 100,          # Sky look: background opacity, %
     "sky_fx": 100,          # Sky look: clouds, sun, rain... opacity, %
+    "simple_mode": "days",  # Simple look: "days" or "hours"
+    "brief_feels": False,   # Brief look: compare the feels-like temperature
+    "brief_threshold": 1,   # Brief look: degrees that count as colder or warmer
 }
 settings = {**DEFAULTS, **(app.load("settings", {}) or {})}
 if settings.get("recent") and not settings["places"]:
@@ -59,7 +68,13 @@ fc = app.load("forecast")
 aq = app.load("air")
 if fc and fc.get("v") != 3:
     fc = None  # an older format; fetch again
+month_data = app.load("month")     # Panorama's calendar (wx.month)
+hist_data = app.load("history")    # Panorama's past 12 months (wx.history)
+extra_busy = False
 model = None
+LOOKS = ["glossy", "sky", "panorama", "simple", "mono", "brief"]
+LOOK_NAMES = ["Glossy", "Sky", "Panorama", "Simple", "Mono", "Brief"]
+PLAIN = {"panorama": panorama, "simple": simple, "mono": mono, "brief": brief}  # looks without detail views
 
 view = "main"               # "main", "settings" or "places"
 state = {"hour_mode": settings["hour_mode"], "hour_page": 0, "hour_sel": None, "detail": None, "edit_places": False}
@@ -231,6 +246,49 @@ def on_weather(msg):
         app.save("forecast", fc)
         app.save("air", aq)
         rebuild()
+        fetch_extra()
+    draw()
+
+
+def fetch_extra(force=False):
+    """Panorama's calendar (every 3 hours) and past year (every 12 hours),
+    only while Panorama is the look."""
+    global extra_busy
+    if settings["look"] != "panorama" or extra_busy or not fc or not fc.get("place"):
+        return
+    place = fc["place"]
+
+    def stale(d, hours):
+        return (force or not d or not same(d.get("place"), place) or time.time() - d.get("fetched", 0) > hours * 3600
+                or "snowfall_sum" not in (d.get("daily") or {}))  # saved before snow was fetched
+    want = [k for k, d, hrs in (("month", month_data, 3), ("history", hist_data, 12)) if stale(d, hrs)]
+    if not want:
+        return
+    extra_busy = True
+
+    def work():
+        got = {}
+        for k in want:
+            try:
+                got[k] = wx.month(place) if k == "month" else wx.history(place)
+            except Exception as e:
+                app.log(f"{k}: {type(e).__name__}: {e}", "warn")
+        app._inbox.put({"type": "extra", "data": got})
+
+    threading.Thread(target=work, daemon=True).start()
+
+
+@app.on_message("extra")
+def on_extra(msg):
+    global month_data, hist_data, extra_busy
+    extra_busy = False
+    got = msg.get("data") or {}
+    if "month" in got:
+        month_data = got["month"]
+        app.save("month", month_data)
+    if "history" in got:
+        hist_data = got["history"]
+        app.save("history", hist_data)
     draw()
 
 
@@ -352,6 +410,9 @@ def main_view():
         anim["template"] = None
         return dash_view(c, c.shapes)
     me = sys.modules[__name__]
+    if settings["look"] in PLAIN:
+        state["detail"] = None
+        return PLAIN[settings["look"]].view(me, footer())
     if state["detail"]:
         return fenn.column([glossy.detail(me)], scroll=True, id=f"gdetail:{state['detail']['kind']}")
     return glossy.view(me, footer())
@@ -378,7 +439,8 @@ def chips_row(label, cid, options, selected):
 
 
 def settings_view():
-    parts = [chips_row("Look", "look", ["Glossy", "Sky"], 1 if settings["look"] == "sky" else 0)]
+    parts = [fenn.text("Look", color="dim"),
+             fenn.chips("look", LOOK_NAMES, LOOKS.index(settings["look"]) if settings["look"] in LOOKS else 0)]
     for kind, label in (("temp", "Temperature"), ("wind", "Wind"), ("precip", "Precipitation"),
                         ("pressure", "Pressure"), ("dist", "Distance")):
         codes = [c for c, _ in u.CHOICES[kind]]
@@ -397,6 +459,9 @@ def settings_view():
                   fenn.slider("sky_fx", settings["sky_fx"], min=0, max=100, step=5,
                               tooltip="Clouds, sun, stars, rain, snow and lightning")], gap=8),
         fenn.toggle("animate", settings["animate"], label="Animated sky (drifting clouds, rain, snow, lightning)"),
+        chips_row("Brief: a change from", "brief_threshold", ["1°", "2°", "3°"],
+                  [1, 2, 3].index(settings["brief_threshold"]) if settings["brief_threshold"] in (1, 2, 3) else 0),
+        fenn.toggle("brief_feels", settings["brief_feels"], label="Brief compares the feels-like temperature"),
         fenn.text("Units left as they were follow the place (°F, mph and inches in the US).", size="small", color="faint"),
         fenn.divider(),
         fenn.text("Sky cards", size="small", color="dim", bold=True),
@@ -425,7 +490,19 @@ def actions():
                 {"id": "done", "icon": "x", "tooltip": "Close"}]
     if state["detail"]:
         return [{"id": "back", "icon": "squares-four", "tooltip": "Back"}]
-    if settings["look"] == "sky":
+    if settings["look"] == "simple":
+        hourly = settings["simple_mode"] == "hours"
+        return [{"id": "smswitch", "icon": "calendar-dots" if hourly else "clock",
+                 "tooltip": "Next days" if hourly else "Next hours"},
+                {"id": "places", "icon": "list", "tooltip": "Places"},
+                {"id": "settings", "icon": "gear-six", "tooltip": "Look, units and cards"}]
+    if settings["look"] == "brief":
+        tom = state.get("brief_day") == 1
+        return [{"id": "brief:" + ("0" if tom else "1"), "icon": "arrow-left" if tom else "arrow-right",
+                 "tooltip": "Today" if tom else "Tomorrow"},
+                {"id": "places", "icon": "list", "tooltip": "Places"},
+                {"id": "settings", "icon": "gear-six", "tooltip": "Look, units and cards"}]
+    if settings["look"] in ("sky", "panorama", "mono"):
         return [{"id": "places", "icon": "list", "tooltip": "Places"},
                 {"id": "refresh", "icon": "arrows-clockwise", "tooltip": "Refresh now"},
                 {"id": "settings", "icon": "gear-six", "tooltip": "Look, units and cards"}]
@@ -483,6 +560,10 @@ def on_canvas(cid, x, y):
     if not action:
         return
     head, _, arg = action.partition(":")
+    for prefix, look in (("pn_", panorama), ("sm_", simple), ("mo_", mono)):
+        if head.startswith(prefix):
+            look.click(sys.modules[__name__], head[3:], arg, extra, x)
+            return
     d = state["detail"]
     if head == "gtoday":
         state.update(g_day=None, ov_sel=0)
@@ -560,6 +641,19 @@ def on_event(e):
                     max(range(24), key=lambda h: model.h("temperature_2m", model.day_hours(n)[h]) or -99)
         else:
             state.update(g_day=None, ov_range="24h", ov_sel=n)
+    elif eid in ("brief:0", "brief:1"):
+        state["brief_day"] = int(eid[-1])
+    elif eid == "smswitch":
+        settings["simple_mode"] = "days" if settings["simple_mode"] == "hours" else "hours"
+        save_settings()
+    elif eid == "brief_threshold":
+        settings["brief_threshold"] = [1, 2, 3][value["index"]]
+        save_settings()
+    elif eid == "brief_feels":
+        settings["brief_feels"] = bool(value)
+        save_settings()
+    elif eid.startswith("pnday:") and model:
+        state.update(pn_day=int(eid[6:]), pn_sel=None)
     elif eid.startswith("city:"):
         key = eid[5:]
         if key == "auto":
@@ -599,9 +693,10 @@ def on_event(e):
             add_place(p)
             save_settings()
     elif eid == "look":
-        settings["look"] = "sky" if value["index"] == 1 else "glossy"
+        settings["look"] = LOOKS[value["index"]] if 0 <= value["index"] < len(LOOKS) else "glossy"
         state["detail"] = None
         save_settings()
+        fetch_extra()
     elif eid.startswith("u:"):
         k = eid[2:]
         settings[k] = u.CHOICES[k][value["index"]][0]
@@ -657,6 +752,7 @@ def on_layout(msg):
 @app.on_message("page_open")
 def on_open(_):
     refresh()
+    fetch_extra()
     draw()
 
 

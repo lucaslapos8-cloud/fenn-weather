@@ -31,6 +31,20 @@ WARM = "#FFB547"
 RAIN = "#5BC8FF"
 
 
+def snow_color(m):
+    """Snow bars are white, as in the Sky look (grey on light glass, where white would vanish)."""
+    return "#FFFFFF" if m.app.dark else "#8E99A8"
+
+
+def snowy(m, rng):
+    """Whether each bar of the Overview's rain chart is snow."""
+    M = m.model
+    if rng == "24h":
+        return [(M.h("snowfall", i) or 0) > 0 for i in hours_shown(m)]
+    ks = range(M.today(), min(M.today() + 7, len(M.days)))
+    return [(M.d("snowfall_sum", k) or 0) > 0 for k in ks]
+
+
 def icon(name, small=False):
     return os.path.join("icons", "sm" if small else "lg", name + ".png")
 
@@ -378,12 +392,14 @@ def overview(m):
     # bars (rain chance)
     if bars is not None:
         bw = max(4, (x1 - x0) / n * (0.5 if rng == "7d" else 0.55))
+        snow = snowy(m, rng)
         for i, v in enumerate(bars):
             v = v or 0
             c.rect(X(i) - bw / 2, top, bw, y1 - top, fill=T["well"], radius=min(4, bw / 2))
             if v > 0:
                 bh = max(3, (y1 - top) * v / 100)
-                c.rect(X(i) - bw / 2, y1 - bh, bw, bh, fill=RAIN if i == sel else RAIN + "99", radius=min(4, bw / 2))
+                col = snow_color(m) if i < len(snow) and snow[i] else RAIN
+                c.rect(X(i) - bw / 2, y1 - bh, bw, bh, fill=col if i == sel else col + "99", radius=min(4, bw / 2))
     # lines: a soft fill under the main one, a glow, then the line
     for vs, color, main in lines:
         pts = [(X(i), Y(v)) for i, v in enumerate(vs) if v is not None]

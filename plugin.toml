@@ -1,6 +1,8 @@
-# The weather on a tile, and a page in two looks: Glossy (3D icons, an
-# interactive overview chart and widgets) and Sky (a live animated sky with
-# cards and detail charts). Forecasts and air quality from Open-Meteo (free,
+# The weather on a tile, and a page in six looks: Glossy (3D icons, an
+# interactive overview chart and widgets), Sky (a live animated sky with
+# cards and detail charts), Panorama (a wide dashboard with a monthly
+# calendar and the past year's trends), Simple (one widget-like card), Mono
+# (monochrome and minimal) and Brief (colder or warmer than yesterday). Forecasts and air quality from Open-Meteo (free,
 # no key); sun and moon computed locally. Python, standard library only.
 id = "weather"
 name = "Weather"
@@ -8,6 +10,6 @@ icon = "cloud-sun"
 size = "wide"
 run = ["python", "main.py"]
 page_size = [520, 410]
-description = "Weather with 3D icons, an interactive chart, air quality, sun and moon, and an animated sky look. Free, no key."
+description = "Weather in six looks: 3D icons and charts, an animated sky, a dashboard with a monthly calendar and yearly trends, a simple widget, a monochrome view with pollen, and colder-or-warmer. Free, no key."
 author = "Lujlap"
-version = "1.0.1"
+version = "1.1.0"

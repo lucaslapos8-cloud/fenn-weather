@@ -1,6 +1,6 @@
 # Weather for Fenn
 
-The weather on a Fenn tile, and a page in one of two looks.
+The weather on a Fenn tile, and a page in one of six looks (Settings > Look).
 
 ## Glossy (the default)
 
@@ -71,6 +71,64 @@ chart to read any hour, and see the day's numbers with a short explanation:
 - Moon: phase, illumination, rise and set, next full and new moon, and a
   clickable month of moon phases to step through.
 
+## Panorama
+
+A wide, desktop-style dashboard on Fenn's own glass (see-through, like
+Glossy), with yellow highlights:
+
+- **Current weather:** the 3D icon, temperature, condition, feels like, a
+  sentence about the next hours, and wind (with its direction), humidity,
+  visibility, pressure and dew point.
+- **Day cards** from yesterday to five days ahead (high, low, icon). Click
+  one to show it in the chart.
+- **The chart:** Overview (temperature), Precipitation, Wind, Air quality,
+  Humidity, Cloud cover, Pressure, UV, Visibility or Feels like over the
+  picked day's 24 hours, colored by value, with the conditions (or wind
+  arrows) every two hours along the top, sunrise and sunset, a "now" line and
+  the moon phase. Click it to read any hour.
+- **Weather details:** temperature (today's curve and where it's heading),
+  feels like (and what's causing it), cloud cover, precipitation (next 24 h
+  and when it's next expected), wind (compass, gusts, Beaufort force),
+  humidity (the next 8 hours as bars, dew point), UV and air quality gauges,
+  moon phase (next full moon), the sun's arc and day length, pressure and
+  visibility. Click one to open it in the chart.
+- **Monthly:** this month or the next as a calendar (your week start from
+  Windows), with each day's icon, high and low: the past days, then the
+  16-day forecast, then the same day last year, faded. Below, a ring with dry
+  and rain or snow days and the average high and low.
+- **Weather trends:** the past 12 months day by day (temperature highs and
+  lows, precipitation, humidity or wind) with "today" and the forecast after
+  it, the hottest, coldest, wettest and windiest month, and the highs,
+  averages and lows.
+- **Your places**, as in Glossy.
+
+## Simple
+
+One card like a home-screen widget: the place, the temperature, today's
+high and low, the condition and a big 3D icon, then the next six days or
+hours. The Daily / Hourly switch under them (or the header button) flips
+between the two.
+
+## Mono
+
+Calm and monochrome: thin outline icons, hairlines and plain numbers, no
+color. The temperature and condition, the next hours (rain chance), the
+next 7 days with a range bar, everything about now (precipitation,
+humidity, wind, feels like, pressure, visibility, UV, sunrise, sunset),
+the next 24 hours of precipitation as thin bars, wind by the hour (arrow,
+speed, gusts), air quality (the index, each pollutant against its health
+limit, the scale), pollen (Europe only: alder, birch, grass, mugwort, olive
+and ragweed) and what to wear now and through the day.
+
+## Brief
+
+The answer first, in a typewriter font: today's weather is COLDER, WARMER
+or ABOUT THE SAME as yesterday, then the morning, noon, evening and night
+temperatures with the change from the day before. The header arrow (or the
+buttons) shows tomorrow against today. Under Settings, choose how many
+degrees count as a change (1°, 2° or 3°) and whether to compare the
+feels-like temperature.
+
 **Places:** the list button opens your places as small sky cards (local time,
 temperature, condition, high and low). Search to add one, click to open it,
 and use the pencil to remove or reorder.
@@ -78,15 +136,15 @@ and use the pencil to remove or reorder.
 **Settings** (gear): look, units (°C/°F; km/h, mph, m/s, knots or Beaufort;
 mm or inches; hPa, inHg or mmHg; km or miles), 24- or 12-hour clock, the air
 quality index, how often to refresh, what the hourly card shows first, and
-which Sky cards to show and in what order. Units you leave alone follow the
+which Sky cards to show and in what order, and how Brief compares. Units you leave alone follow the
 place (°F, mph and inches in the US).
 
 ## What it doesn't do
 
 Fenn pages can't do hover or drag and drop, and there's no map:
 Fenn can't lay a weather overlay over map tiles. There are no weather alerts
-or historical averages either, because Open-Meteo doesn't provide alerts and
-the climate data would need another large download.
+either, because Open-Meteo doesn't provide them, and Panorama's trends are
+the past 12 months rather than long-term climate averages.
 
 ## Requirements
 
@@ -106,26 +164,30 @@ its full height.
 - **Forecasts:** `api.open-meteo.com` gets the place's coordinates (rounded to
   about 10 m) once per refresh interval (15 minutes by default) while Fenn
   runs, and when you change places or press refresh.
-- **Air quality:** `air-quality-api.open-meteo.com`, the same coordinates, with
-  each forecast.
+- **Air quality and pollen:** `air-quality-api.open-meteo.com`, the same
+  coordinates, with each forecast.
 - **Places list:** one `api.open-meteo.com` request for all saved places when
   you open it (at most every 10 minutes).
 - **City search:** `geocoding-api.open-meteo.com` gets what you type.
 - **"My location"** asks `get.geojs.io` for the city of your internet
   connection's IP address, with each forecast refresh while it's selected.
+- **Panorama only:** `api.open-meteo.com` again for the calendar (the last 31
+  days and the next 16, every 3 hours), and `archive-api.open-meteo.com` for
+  the past 12 months (every 12 hours), the same coordinates.
 - Sun and moon times are computed on your PC. No account, no key, no tracking.
 
 Kept in the plugin's data folder (`FENN_DATA_DIR`): `settings.json` (places,
 units, look, cards), `forecast.json` and `air.json` (the last data, shown when
-you're offline), and an empty `reloaded` marker (the plugin restarts itself
+you're offline), `month.json` and `history.json` (Panorama's calendar and
+past year), and an empty `reloaded` marker (the plugin restarts itself
 when its files change, at most every 25 seconds).
 
 ## Files
 
 `main.py` (state, fetching, clicks), `wx.py` (Open-Meteo), `data.py`
 (reading the forecast, the summary sentence), `units.py`, `astro.py` (sun and
-moon, after SunCalc by Vladimir Agafonkin, BSD-2-Clause), `glossy.py` and
-`sky.py` (the two looks), `ambient.py` (the animated sky), `ui.py` (canvas cards and charts), `symbols.py` (the
+moon, after SunCalc by Vladimir Agafonkin, BSD-2-Clause), `glossy.py`,
+`sky.py`, `panorama.py`, `simple.py`, `mono.py` and `brief.py` (the six looks), `ambient.py` (the animated sky), `ui.py` (canvas cards and charts), `symbols.py` (the
 flat symbols), `icons/` (the 3D icons, drawn by `tools/make_icons.ps1`).
 
 ## License
@@ -135,6 +197,19 @@ MIT, see [LICENSE](LICENSE). Weather and air quality data by
 Copernicus Atmosphere Monitoring Service.
 
 ## Changelog
+
+**1.1.0**
+- Four new looks, under Settings > Look:
+  - Panorama: a wide dashboard with a day-by-day chart of ten metrics,
+    twelve detail cards with gauges, a monthly calendar and the past 12
+    months' trends.
+  - Simple: one widget-like card with a Daily / Hourly switch.
+  - Mono: monochrome and minimal, with pollen and what to wear.
+  - Brief: is today colder, warmer or about the same as yesterday?
+- Fixed: in the Sky look, snowflakes (and raindrops) jumped to new places
+  instead of falling smoothly.
+- Snow shows as white bars (as in the Sky look) in Glossy's rain chart and
+  Panorama's precipitation chart, ring and 12-month bars.
 
 **1.0.1**
 - Sky look: two new sliders in Settings, Sky background (from the full sky
